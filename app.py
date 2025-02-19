@@ -30,8 +30,20 @@ if not os.path.exists(persist_directory):
 embeddings = OpenAIEmbeddings()
 vector_store = FAISS.load_local(persist_directory, embeddings, allow_dangerous_deserialization=True)
 
-# Inizializza il modello LLM e la catena di RetrievalQA (con ritorno dei documenti sorgente)
-llm = ChatOpenAI(temperature=0.1, model="gpt-4o-mini")
+# Definisci il system prompt (messaggio di sistema)
+SYSTEM_PROMPT = """
+Sei "Avvocato Virtuale" dello studio legale Di Pietro in Italia. Il tuo compito è fornire informazioni e orientamenti preliminari su questioni legali, mantenendo un tono professionale, chiaro ed empatico e rivolgendoti sempre con il "Lei".
+
+Rispondi sia a domande legali che a domande generali. Se necessario, consulta la tua knowledge base per informazioni su normative, contratti, ecc.
+. Se il caso richiede approfondimenti, informa l’utente che un avvocato lo contatterà.
+Fai una domanda alla volta e guida l’utente in modo naturale.
+Chiudi la conversazione solo dopo aver raccolto l'email e il numero di telefono dell'utente.
+"""
+
+# Inizializza il modello senza passare 'system_message'
+llm = ChatOpenAI(temperature=0.5, model="gpt-4o-mini")  # oppure "gpt-4" se disponibile
+
+# Inizializza la catena RetrievalQA
 qa_chain = RetrievalQA.from_chain_type(
     llm=llm,
     chain_type="stuff",
@@ -39,7 +51,7 @@ qa_chain = RetrievalQA.from_chain_type(
     return_source_documents=True
 )
 
-# Funzioni per recuperare la conversazione da ElevenLabs
+# Funzioni per recuperare conversazioni da ElevenLabs
 def get_last_conversation(agent_id, api_key):
     url = "https://api.elevenlabs.io/v1/convai/conversations"
     headers = {"xi-api-key": api_key}
@@ -68,18 +80,17 @@ def get_conversation_details(conversation_id, api_key):
 st.set_page_config(page_title="Assistente Legale", layout="wide")
 st.title("Assistente Legale")
 
-
-# ---------------------------------------------
 # SEZIONE: Q&A tramite LangChain e OpenAI
-# ---------------------------------------------
 st.subheader("Fai una domanda su questioni legali, contratti, normative, ecc.")
 user_input = st.text_input("Inserisci la tua domanda qui")
 if st.button("Invia") and user_input:
     with st.spinner("Generazione della risposta..."):
-        result = qa_chain.invoke(user_input)
-        if isinstance(result, dict) and "result" in result:
-            answer = result["result"]
-            source_docs = result.get("source_documents", [])
+        # Crea il prompt concatenando il messaggio di sistema e la domanda dell'utente
+        prompt_text = SYSTEM_PROMPT.strip() + "\n\nDomanda: " + user_input.strip()
+        result = qa_chain.invoke(prompt_text)
+        # Estrai la risposta e le fonti (se presenti)
+        answer = result["result"] if isinstance(result, dict) and "result" in result else result
+        source_docs = result.get("source_documents", [])
     st.markdown(f"**Q:** {user_input}")
     st.markdown(f"**A:** {answer}")
     if source_docs:
@@ -91,15 +102,11 @@ if st.button("Invia") and user_input:
                 source = metadata["source"].replace("\\", "/")
                 page = metadata.get("page", None)
                 line = metadata.get("start_index", None)
-                if source in sources_dict:
-                    sources_dict[source].append((page, line))
-                else:
-                    sources_dict[source] = [(page, line)]
+                sources_dict.setdefault(source, []).append((page, line))
         for source, occurrences in sources_dict.items():
             file_name = os.path.basename(source)
             occ_list = []
-            for occ in occurrences:
-                p, l = occ
+            for p, l in occurrences:
                 occ_str = ""
                 if p is not None and p != 0:
                     occ_str += f"pagina {p}"
@@ -108,18 +115,12 @@ if st.button("Invia") and user_input:
                 if occ_str:
                     occ_list.append(occ_str)
             occ_text = " - ".join(occ_list) if occ_list else ""
-            if occ_text:
-                st.markdown(f"- [{file_name} ({occ_text})]({source})")
-            else:
-                st.markdown(f"- [{file_name}]({source})")
+            st.markdown(f"- [{file_name} ({occ_text})]({source})" if occ_text else f"- [{file_name}]({source})")
     else:
         st.markdown("*Nessuna fonte disponibile.*")
 
-# ---------------------------------------------
-# SEZIONE: Agent Conversazionale ElevenLabs (embed essenziale)
-# ---------------------------------------------
+# SEZIONE: Agent Conversazionale ElevenLabs (embedding del widget)
 st.subheader("Agent Conversazionale ElevenLabs")
-# Script HTML essenziale per l'embedding del widget
 minimal_widget_html = """
 <div>
   <elevenlabs-convai agent-id="vE96ET0MG8Jlv2jZA5cq"></elevenlabs-convai>
@@ -128,35 +129,31 @@ minimal_widget_html = """
 """
 components.html(minimal_widget_html, height=600)
 
-
-# ---------------------------------------------
-# SEZIONE: Transcript e Estrazione Contatti (in alto)
-# ---------------------------------------------
+# SEZIONE: Transcript e Estrazione Contatti
 st.subheader("Transcript e Estrazione Contatti")
-
 col1, col2 = st.columns(2)
 
 with col1:
     if st.button("Recupera conversazione"):
         with st.spinner("Recupero conversazione..."):
-             agent_id = "vE96ET0MG8Jlv2jZA5cq"
-             conv_id = get_last_conversation(agent_id, elevenlabs_api_key)
-             if conv_id:
-                 details = get_conversation_details(conv_id, elevenlabs_api_key)
-                 if details:
-                     transcript = details.get("transcript", [])
-                     st.session_state["transcript"] = transcript  # Salva il transcript in sessione
-                     if transcript:
-                         st.markdown("#### Transcript")
-                         for msg in transcript:
-                             role = msg.get("role", "unknown")
-                             time_in_call_secs = msg.get("time_in_call_secs", "")
-                             message = msg.get("message", "")
-                             st.markdown(f"**{role.capitalize()} [{time_in_call_secs}s]:** {message}")
-                     else:
-                         st.info("Nessun transcript disponibile")
-             else:
-                 st.error("Nessuna conversazione trovata")
+            agent_id = "vE96ET0MG8Jlv2jZA5cq"
+            conv_id = get_last_conversation(agent_id, elevenlabs_api_key)
+            if conv_id:
+                details = get_conversation_details(conv_id, elevenlabs_api_key)
+                if details:
+                    transcript = details.get("transcript", [])
+                    st.session_state["transcript"] = transcript  # Salva il transcript in sessione
+                    if transcript:
+                        st.markdown("#### Transcript")
+                        for msg in transcript:
+                            role = msg.get("role", "unknown")
+                            time_in_call_secs = msg.get("time_in_call_secs", "")
+                            message = msg.get("message", "")
+                            st.markdown(f"**{role.capitalize()} [{time_in_call_secs}s]:** {message}")
+                    else:
+                        st.info("Nessun transcript disponibile")
+            else:
+                st.error("Nessuna conversazione trovata")
 
 with col2:
     if st.button("Estrai contatti e informazioni"):
