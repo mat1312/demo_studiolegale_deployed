@@ -120,14 +120,34 @@ if st.button("Invia") and user_input:
         st.markdown("*Nessuna fonte disponibile.*")
 
 # SEZIONE: Agent Conversazionale ElevenLabs (embedding del widget)
+# SEZIONE: Agent Conversazionale ElevenLabs (embedding del widget)
 st.subheader("Agent Conversazionale ElevenLabs")
-minimal_widget_html = """
-<div>
+widget_html = """
+<style>
+  /* Container per centrare e ingrandire il widget */
+  .widget-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;  /* Regola la larghezza a tuo piacimento */
+    height: 600px; /* Regola l'altezza a tuo piacimento */
+    z-index: 9999;
+  }
+  /* Assicura che il widget usi tutto lo spazio del container */
+  elevenlabs-convai {
+    width: 100%;
+    height: 100%;
+  }
+</style>
+<div class="widget-container">
   <elevenlabs-convai agent-id="vE96ET0MG8Jlv2jZA5cq"></elevenlabs-convai>
 </div>
 <script src="https://elevenlabs.io/convai-widget/index.js" async></script>
 """
-components.html(minimal_widget_html, height=600)
+components.html(widget_html, height=600)
+
+
 
 # SEZIONE: Transcript e Estrazione Contatti
 st.subheader("Transcript e Estrazione Contatti")
