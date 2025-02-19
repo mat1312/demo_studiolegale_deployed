@@ -128,8 +128,8 @@ widget_html = """
   .widget-container {
     position: fixed;
     top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    left: 20%;
+    transform: translate(0, -50%);
     width: 600px;  /* Regola la larghezza a tuo piacimento */
     height: 600px; /* Regola l'altezza a tuo piacimento */
     z-index: 9999;
