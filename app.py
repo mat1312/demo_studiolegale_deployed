@@ -138,7 +138,7 @@ widget_html = """
   /* Adattamento per dispositivi mobili */
   @media only screen and (max-width: 768px) {
     .widget-container {
-      top: 20%;  /* Più in alto per dispositivi mobili */
+      top: 5%;  /* Più in alto per dispositivi mobili */
       left: 50%;  /* Centra il widget orizzontalmente */
       transform: translate(-50%, 0);  /* Solo centratura orizzontale */
       width: 90%;  /* Occupa il 90% della larghezza dello schermo */
