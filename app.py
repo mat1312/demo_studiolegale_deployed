@@ -154,7 +154,7 @@ widget_html = """
 <div class="widget-container">
   <elevenlabs-convai agent-id="vE96ET0MG8Jlv2jZA5cq"></elevenlabs-convai>
 </div>
-<script src="https://elevenlabs.io/convai-widget/index.js" async></script>
+<script src="https://elevenlabs.io/convai-widget/index.js" crossorigin="anonymous" async></script>
 """
 components.html(widget_html, height=600)
 
